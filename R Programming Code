@@ -1,0 +1,269 @@
+### Nigeria's Inflation Project
+
+##Installing packages needed for project
+
+#tidyverse for data importation & wrangling
+install.packages("tidyverse")
+library(tidyverse)
+
+#ggplot for data visualisation
+install.packages("ggplot2")
+library(ggplot2)
+
+#lubridate for date manipulation
+install.packages("lubridate")
+library(lubridate)
+
+#dplyr for grammar of data manipulation
+install.packages("dplyr")
+library(dplyr)
+
+#lmtest for linear regression
+install.packages("lmtest")
+library(lmtest)
+
+#car for influence analysis and regression model valuation
+install.packages("car")
+library(car)
+
+#Displaying working directory
+getwd()
+
+#Setting working directory
+setwd("/Users/Wale/Downloads/Projects/Own Path/Inflation")
+
+#Importing data (csv files)
+Inflation_rate <- read.csv("inflation_rate.csv")
+Interest_rate <- read.csv("interest_rate.csv")
+Fx_rate <- read.csv("fx_rate.csv")
+Money_supply <- read.csv("money_supply.csv")
+Fx_supply <- read.csv("Fx_Supply.csv")
+
+#Inspecting imported data
+View(Inflation_rate)
+View(Interest_rate)
+View(Fx_rate)
+View(Money_supply)
+View(Fx_supply)
+
+str(Inflation_rate)
+str(Interest_rate)
+str(Fx_rate)
+str(Money_supply)
+str(Fx_supply)
+
+##Removing irrelevant columns
+#Inflation rate table
+Inflation_data <- Inflation_rate %>% 
+  select(-c(All_Items_12_Months_Avg_Change, Food_12_Months_Avg_Change, All_Items_Less_Farm_Produce_Year_On_Change, All_Items_Less_Farm_Produce_12_Months_Avg_Change,
+            All_Items_Less_Farm_Produce_and_Energy_Year_on_Change, All_Items_Less_Farm_Produce_and_Energy_12_Months_Avg_Change))
+#Interest rate table
+Interest_rate_data <- Interest_rate %>% 
+  select(-c(InterBankCallRate, MRR, TreasuryBill, SavingsDeposit, OneMonthDeposit, ThreeMonthsDeposit, SixMonthsDeposit, TwelveMonthsDeposit,
+            PrimeLending, MaxLending))
+#Fx rate table
+Fx_rate_data <- Fx_rate %>% 
+  select(-c(DAS..USD., IFEM..USD., GB.Pounds, EURO, CFA.Franc))
+#Fx supply table
+Fx_suppy_data <- Fx_supply %>% 
+  select(-c(Date, Level.1.Category, Unit))
+#Money supply table
+Money_supply_data <- Money_supply %>% 
+  select(-c(Narrow.Money, Money.Supply.M3, Money.Supply.M2, Net.Foreign.Assets, Net.Domestic.Credit, Credit.to.Government, 
+            Credit.to.Private.Sector, Base.Money, Bank.Reserves, Currency.Outside.Banks, Demand.Deposits, Quasi.Money, Net.Domestic.Assets,
+            Credit.To.GovernmentFed, Mirror.Accounts, Other.Assets.Net, Money.Supply.M2, CBN.Bills, Special.Intervention.Reserves))
+
+View(Inflation_data)
+View(Interest_rate_data)
+View(Fx_rate_data)
+View(Fx_suppy_data)
+View(Money_supply_data)
+
+##Renaming columns in respective data frames
+#Inflation table
+Inflation_data <- rename(Inflation_data,
+                         all_inflation = "All_Items_Year_On_Change",
+                         food_inflation = "Food_Year_on_Change")
+
+#Interest rate data frame
+Interest_rate_data <- rename(Interest_rate_data,
+                             Baseline_interest_rate = "MPR")
+
+#Fx rate data frame
+Fx_rate_data <- rename(Fx_rate_data,
+                       BDC_Dollar_Rate = "BDC..USD.")
+
+#Money supply
+Money_supply_data <- rename(Money_supply_data,
+                            Currency_in_circulation = "Currency.in.Circulation")
+
+##Renaming month description from numeric to month names
+month_mapping <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+Inflation_data$Month[Inflation_data$Month == 1] <- "January"
+Inflation_data$Month <- month_mapping[Inflation_data$Month]
+Interest_rate_data$Month <- month_mapping[Interest_rate_data$Month]
+Fx_rate_data$Month <- month_mapping[Fx_rate_data$Month]
+Money_supply_data$Month <- month_mapping[Money_supply_data$Month]
+
+
+##Converting data type for month column
+Inflation_data <- mutate(Inflation_data, Month = as.character(Month))
+Interest_rate_data <- mutate(Interest_rate_data, Month = as.character(Month))
+Fx_rate_data <- mutate(Fx_rate_data, Month = as.character(Month))
+Money_supply_data <- mutate(Money_supply_data, Month = as.character(Month))
+
+str(Inflation_data)
+str(Interest_rate_data)
+str(Fx_rate_data)
+str(Money_supply_data)
+
+View(Inflation_data)
+View(Interest_rate_data)
+View(Fx_rate_data)
+View(Fx_suppy_data)
+View(Money_supply_data)
+
+#Sorting data frames in ascending order
+Interest_rate_data <- Interest_rate_data %>% 
+  arrange(Year)
+
+Money_supply_data <- Money_supply_data %>% 
+  arrange(Year)
+
+##Merging the data frames
+#Using left join. Left join keeps all rows from original data frames and fills in missing values
+Combined_data <- Inflation_data %>% 
+  left_join(Interest_rate_data, by = c("Year", "Month")) %>% 
+  left_join(Fx_rate_data, by = c("Year", "Month")) %>% 
+  left_join(Fx_suppy_data, by = c("Year", "Month")) %>% 
+  left_join(Money_supply_data, by = c("Year", "Month"))
+
+View(Combined_data)
+str(Combined_data)
+
+
+##Handling missing values (NA)
+#Replacing NA with a specific value (0)
+
+Combined_data$Baseline_interest_rate <- replace(Combined_data$Baseline_interest_rate, is.na(Combined_data$Baseline_interest_rate), 0.00)
+
+Combined_data$BDC_Dollar_Rate <- replace(Combined_data$BDC_Dollar_Rate, is.na(Combined_data$BDC_Dollar_Rate), 0.00)
+
+Combined_data$Fx_Supply <- replace(Combined_data$Fx_Supply, is.na(Combined_data$Fx_Supply), 0.00)
+
+View(Combined_data)
+
+
+#Renaming columns in Combined_data
+Combined_data <- rename(Combined_data,
+                        Inflation = "all_inflation",
+                        Food_inflation = "food_inflation",
+                        Interest_rate = "Baseline_interest_rate")
+
+View(Combined_data)
+str(Combined_data)
+
+##Getting average data for each Year
+Average_combined_data <- Combined_data %>% 
+  group_by(Year) %>% 
+  summarize(Inflation = mean(Inflation),
+            Food_inflation = mean(Food_inflation),
+            Interest_rate = mean(Interest_rate),
+            BDC_Dollar_Rate = mean(BDC_Dollar_Rate),
+            Fx_Supply = mean(Fx_Supply),
+            Currency_in_circulation = mean(Currency_in_circulation))
+
+
+View(Average_combined_data)
+
+#Running a linear regression on inflation, food_inflation, interestrate, bdc dollar rate and fx supply.
+Regression_model <- lm(Inflation ~ Food_inflation + Interest_rate + BDC_Dollar_Rate + Fx_Supply + Currency_in_circulation, 
+                       data = Combined_data)
+
+Regression_model_average <- lm(Inflation ~ Food_inflation + Interest_rate + BDC_Dollar_Rate + Fx_Supply, data = Average_combined_data)
+
+summary(Regression_model)
+plot(Regression_model)
+coeftest(Regression_model)
+
+summary(Regression_model_average)
+
+
+#Combined data with missing values
+Combined_data_original <- Combined_data
+
+Combined_data_original$Interest_rate <- replace(Combined_data_original$Interest_rate, Combined_data_original$Interest_rate == 0.00, NA)
+
+Combined_data_original$BDC_Dollar_Rate <- replace(Combined_data_original$BDC_Dollar_Rate, Combined_data_original$BDC_Dollar_Rate == 0.00, NA)
+
+Combined_data_original$Fx_Supply <- replace(Combined_data_original$Fx_Supply, Combined_data_original$Fx_Supply == 0.00, NA)
+
+View(Combined_data_original)
+
+##Getting average data for each Year in combined_data_original
+Average_combined_data_original <- Combined_data_original %>% 
+  group_by(Year) %>% 
+  summarize(Inflation = mean(Inflation),
+            Food_inflation = mean(Food_inflation),
+            Interest_rate = mean(Interest_rate),
+            BDC_Dollar_Rate = mean(BDC_Dollar_Rate),
+            Fx_Supply = mean(Fx_Supply))
+
+##Visualising data
+ggplot(data = Average_combined_data_original, aes(x = Year)) + 
+  geom_line(aes(y = Inflation, color = "Inflation"), size = 1.5) +
+  geom_line(aes(y = Interest_rate, color = "Interest Rate"), size = 1.5) +
+  labs(title = "Inflation and Interest Rate Trend",
+       x = "Year",
+       y = "Value") + 
+  scale_color_manual(values = c("Inflation" = "blue", "Interest Rate" = "red")) +
+  theme_minimal()
+
+# Time Series Plot for Inflation
+ggplot(Combined_data, aes(x = Year, y = Inflation)) +
+  geom_line() +
+  labs(title = "Time Series Plot of Inflation",
+       x = "Year",
+       y = "Inflation")
+
+# Scatter Plot: Inflation vs. Food_inflation
+ggplot(Combined_data, aes(x = Food_inflation, y = Inflation)) +
+  geom_point() +
+  labs(title = "Scatter Plot: Inflation vs. Food_inflation",
+       x = "Food_inflation",
+       y = "Inflation")
+
+# Scatter Plot: Inflation vs. Interest_rate
+ggplot(Combined_data, aes(x = Interest_rate, y = Inflation)) +
+  geom_point() +
+  labs(title = "Scatter Plot: Inflation vs. Interest_rate",
+       x = "Interest_rate",
+       y = "Inflation")
+
+# Scatter Plot: Inflation vs. Fx_Supply
+ggplot(Combined_data, aes(x = Fx_Supply, y = Inflation)) +
+  geom_point() +
+  labs(title = "Scatter Plot: Inflation vs. Fx_Supply",
+       x = "Fx_Supply",
+       y = "Inflation")
+
+# Histogram for Inflation
+ggplot(Combined_data, aes(x = Inflation)) +
+  geom_histogram(binwidth = 1, fill = "blue", color = "black") +
+  labs(title = "Histogram of Inflation",
+       x = "Year",
+       y = "Inflation")
+
+# Predicted vs. Actual Plot
+predicted_values <- predict(Regression_model)
+actual_values <- Combined_data$Inflation
+plot(predicted_values, actual_values, pch = 16, col = "blue",
+     xlab = "Predicted Inflation",
+     ylab = "Actual Inflation",
+     main = "Predicted vs. Actual Plot")
+
+
+##Exporting data frame as csv file
+write.csv(Combined_data, file = "Combined_data.csv", row.names = TRUE)
+
